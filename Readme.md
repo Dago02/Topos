@@ -6,7 +6,7 @@ Instrucciones:
 1. Mover el martillo y selecionar el juego.
 2. Moverse el martillo para iniciar el juego.
 3. accionar el martillo para darle a los topos.
-4. Si quiere volver a jugar regurese al paso uno.
+4. Si quiere volver a jugar regrese al paso uno.
 
 Descripcion del Mando:
 Cuenta con un acelerometor y un sensor ultrasonico que permiten la iteraccion con la realidad virtual, el acelerometro mepermite mverme en mi espacio virtua, emulando las condiciones de la realidad y mi sensor de prcimidad me dara el lucar de inpacto.
