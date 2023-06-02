@@ -9,8 +9,9 @@ Instrucciones:
 4. Si quiere volver a jugar regrese al paso uno.
 
 Descripcion del Mando:
-Cuenta con un acelerometor y un sensor ultrasonico que permiten la iteraccion con la realidad virtual, el acelerometro mepermite mverme en mi espacio virtua, emulando las condiciones de la realidad y mi sensor de prcimidad me dara el lucar de inpacto.
-Esta implimentacion se realizo con la esp32 que nos permite estar en copnstante comunicacion por su puesto Bluetooth al computador.
+
+Cuenta con un acelerómetro y un sensor ultrasónico que permiten la interacción con la realidad virtual, el acelerómetro me permite moverme en mi espacio virtual, emulando las condiciones de la realidad y mi sensor de proximidad me dará el lugar de impacto.
+Esta implementación se realizó con la esp32 que nos permite estar en constante comunicación por su puesto Bluetooth al computador.
 
 Creditos:
 
