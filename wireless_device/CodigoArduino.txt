@@ -1,0 +1,95 @@
+#include "BluetoothSerial.h"
+
+//#define USE_PIN // Uncomment this to use PIN during pairing. The pin is specified on the line below
+const char *pin = "1234"; // Change this to more secure PIN.
+
+String device_name = "ESP32-BT-Slave";
+
+#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
+#error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
+#endif
+
+#if !defined(CONFIG_BT_SPP_ENABLED)
+#error Serial Bluetooth not available or not enabled. It is only available for the ESP32 chip.
+#endif
+
+BluetoothSerial SerialBT;
+
+#include <Wire.h>
+#include <Adafruit_Sensor.h>    // Adafruit  sensor library
+#include <Adafruit_ADXL345_U.h>  // ADXL345 library
+
+Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified();   // ADXL345 Object
+long readUltrasonicDistance(int triggerPin, int echoPin)
+{
+  pinMode(triggerPin, OUTPUT);  // Clear the trigger
+  digitalWrite(triggerPin, LOW);
+  delayMicroseconds(2);
+  // Sets the trigger pin to HIGH state for 10 microseconds
+  digitalWrite(triggerPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(triggerPin, LOW);
+  pinMode(echoPin, INPUT);
+  // Reads the echo pin, and returns the sound wave travel time in microseconds
+  return pulseIn(echoPin, HIGH);
+
+}
+float D;
+
+void setup() {
+
+  Serial.begin(9600); // Inicialización de la conexión en serie para la depuración
+  SerialBT.begin(device_name); //Bluetooth device name
+  Serial.printf("The device with name \"%s\" is started.\nNow you can pair it with Bluetooth!\n", device_name.c_str());
+  //Serial.printf("The device with name \"%s\" and MAC address %s is started.\nNow you can pair it with Bluetooth!\n", device_name.c_str(), SerialBT.getMacString()); // Use this after the MAC method is implemented
+  #ifdef USE_PIN
+    SerialBT.setPin(pin);
+    Serial.println("Using PIN");
+  #endif
+
+ // Serial.begin(9600);
+  // Wire.begin();
+  if(!accel.begin())   // if ASXL345 sensor not found
+  {
+    Serial.println("ADXL345 not detected");
+    while(1);
+  }
+
+}
+
+void loop() {
+
+ 
+  
+  SerialBT.println(D);
+
+
+  D= 0.01723 * readUltrasonicDistance(4, 18);
+  delay(10); // Delay a little bit to improve simulation performance
+  Serial.println(D);
+
+ sensors_event_t event;
+ accel.getEvent(&event);
+ Serial.print("X: ");
+ Serial.print(event.acceleration.x);
+ Serial.print("  ");
+  Serial.print("Y: ");
+ Serial.print(event.acceleration.y);
+ Serial.print("  ");
+  Serial.print("Z: ");
+ Serial.print(event.acceleration.z);
+ Serial.print("  ");
+ Serial.println("m/s^2 ");
+ 
+ SerialBT.print("x= ");
+ SerialBT.print(event.acceleration.x);
+ SerialBT.print("  ");
+ SerialBT.print("y= ");
+ SerialBT.print(event.acceleration.y);
+ SerialBT.print("  ");
+ SerialBT.print("z= ");
+ SerialBT.println(event.acceleration.z);
+ 
+ delay(500);
+
+}

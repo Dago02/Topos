@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
+        <script src="https://cdn.babylonjs.com/ammo.js"></script>
+        <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+        <script src="https://cdn.babylonjs.com/cannon.js"></script>
+        <script src="https://cdn.babylonjs.com/Oimo.js"></script>
+        <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
+        <script src="https://cdn.babylonjs.com/babylon.js"></script>
+        <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+        <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+            
+            #canvasZone {
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+<body>
+    <div>
+		<div><button id="connectDevice" name="connectDevice">Connect BT Device</button></div>
+	    <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
+	</div>
+	<script src="btdevice.js"></script>
+    <script>
+		const mydevice = new BTDevice();
+		window.onload = function() {
+			// Connect / Disconnect button
+			connectDevice.addEventListener("click", () => {
+				mydevice.init( function(status){
+					if (status) {
+						connectDevice.innerHTML = "Disconnect BT Device";
+					} else {
+						connectDevice.innerHTML = "Connect BT Device";
+					}
+				});
+			});
+		}
+    </script>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var startRenderLoop = function (engine, canvas) {
+            engine.runRenderLoop(function () {
+                if (sceneToRender && sceneToRender.activeCamera) {
+                    sceneToRender.render();
+                }
+            });
+        }
+
+        var engine = null;
+        var scene = null;
+        var sceneToRender = null;
+        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+        const maxMoles = 2;
+var moles = [];
+var molesStatus = [];
+var molesTimecount = [];
+var molesWaitTime = [];
+
+const holeDiameter = 3;
+const maxHoles = 6;
+var holes = [];
+var newPlayField = null;
+
+var hammer;
+var hBar;
+var hTop;
+var animHammer;
+
+var totalPoints = 0;
+var pointsText;
+
+const fps = 60; //Frames per second
+const maxTime = 1 * 60 * fps;   //1 minute for the game
+var timeStamp = 0;
+
+var gameStarted = false;
+var gameOver = false;
+
+
+// Crea el entorno según el arreglo playfield, donde k=1 es una roca y k=2 es un cazador
+var createField = function ( scene ) {
+    // Create ground
+    const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 40, height: 100}, scene);
+    const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+    groundMat.diffuseColor = new BABYLON.Color3(0.16, 0.53, 0.25, 0.86); 
+    ground.material = groundMat;
+    
+    //Create holes
+    var aCSG = BABYLON.CSG.FromMesh(ground);
+    for(let i=0; i<maxHoles; i++) {
+        holes[i] = BABYLON.Mesh.CreateSphere("hole"+i, 8, holeDiameter, scene);
+        holes[i].position.x = Math.floor(Math.random() * 20) - 10;
+        holes[i].position.z = Math.floor(Math.random() * 20) - 10;   
+        var bCSG = BABYLON.CSG.FromMesh(holes[i]);
+        var aCSG = aCSG.subtract(bCSG);
+        holes[i].position.y = -10;
+    }
+    if (newPlayField!=null) {
+        newPlayField.dispose();
+    }
+    newPlayField = aCSG.toMesh("csg", groundMat, scene);
+    ground.dispose();
+}
+
+// Crea el martillo
+var createHammer = function() {
+    hammer  = BABYLON.MeshBuilder.CreateBox("hammer", {width: 1, height: 1, depth: 1}); 
+    hBar = BABYLON.MeshBuilder.CreateCylinder("hBar", {height: 30, diameterTop: 1, diameterBottom: 2, tessellation: 8});
+    hTop = BABYLON.MeshBuilder.CreateCylinder("hTop", {height: 6, diameterTop: 4, diameterBottom: 4, tessellation: 16});
+    hTop.position.y = 15; 
+    hTop.rotation.x = Math.PI/2;
+    hTop.parent = hBar;
+    hBar.position.y = 15;
+    hBar.parent = hammer;
+    hammer.position.z = 20;
+    
+    //Animación del martillo golpeando
+    animHammer = new BABYLON.Animation("animHammer", "rotation.x", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+    animHammerKeys = []; 
+    animHammerKeys.push({
+        frame: 0,
+        value: 0
+    }); 
+    animHammerKeys.push({
+        frame: 15,
+        value: -Math.PI / 2
+    });
+    animHammer.setKeys(animHammerKeys);
+    hammer.animations.push(animHammer);
+}
+
+//Crea los botones de la interfaz gráfica
+var buttonTile = function ( buttonName, colorName, x, y, action ) {
+    var buttonX = BABYLON.GUI.Button.CreateSimpleButton("but"+buttonName, buttonName);
+    buttonX.width = "60px"
+    buttonX.height = "30px";
+    buttonX.color = "white";
+    buttonX.cornerRadius = 15;
+    buttonX.background = colorName;
+    buttonX.left = x;
+    buttonX.top = y;
+    buttonX.onPointerUpObservable.add(action);
+    return buttonX;
+}   
+
+//Funciones que se invocan cuando se presiona una tecla 
+
+var pressButtonLeft = function ( scene ) {
+    if (!gameStarted) {
+        startGame(scene);
+        return;
+    }
+    hammer.rotation.z -= Math.PI/10;
+    if (hammer.rotation.z < -Math.PI/4) {
+        hammer.rotation.z = -Math.PI/4;
+    }
+}
+
+var pressButtonRight = function ( scene ) {
+    if (!gameStarted) {
+        startGame(scene);
+        return;
+    }
+    hammer.rotation.z += Math.PI/10;
+    if (hammer.rotation.z > Math.PI/4) {
+        hammer.rotation.z = Math.PI/4;
+    }
+}
+
+var pressButtonDown = function ( scene ) {
+    if (!gameStarted) {
+        startGame(scene);
+        return;
+    }
+    hammer.position.z += 2;
+    if (hammer.position.z > 40) {
+        hammer.position.z = 40;
+    }
+}
+
+var pressButtonUp = function ( scene ) {
+    if (!gameStarted) {
+        startGame(scene);
+        return;
+    }
+    hammer.position.z -= 2;
+    if (hammer.position.z < 20) {
+        hammer.position.z = 20;
+    }
+}
+
+var pressButtonFire = function ( scene ) {
+    if (!gameStarted) {
+        startGame(scene);
+        return;
+    }
+    setTimeout(async () => {
+        const anim = scene.beginAnimation(hammer, 0, 15, false);
+        await anim.waitAsync();
+        hammer.rotation.x = 0;
+    });
+}
+
+// Display time & point
+var showTime2 = function ( val ) {
+    if (val<10) {
+        return "0"+val;
+    } else {
+        return val;
+    }
+}
+var showTimeScore = function () {
+    var totalsecs = timeStamp/fps;
+    var nmin = Math.floor(totalsecs/60);
+    var nsec = Math.floor(totalsecs - nmin*60);
+    pointsText.text = "Time "+showTime2(nmin)+":"+showTime2(nsec)+" - Points "+totalPoints;
+}
+
+// Inicia el juego
+var startGame = function ( scene ) {
+    // Create Field
+    createField(scene);
+    // Set moles status
+    for (let i=0; i<maxMoles; i++) {
+        molesStatus[i] = 0;  
+        molesTimecount[i] = fps + Math.floor( Math.random()*fps );
+        molesWaitTime[i] = fps + Math.floor( Math.random()*3*fps );
+    }
+    // Update variables
+    timeStamp = 0;
+    smashedActive = false;
+    totalPoints = 0;
+    pointsText.text = "Time: 00:00 - Points: 0";
+    // Update status
+    gameStarted = true;
+    gameOver = false;
+}
+
+
+const createScene = function () {
+    const scene = new BABYLON.Scene(engine);
+
+    // Connect to device
+    const dsm = new BABYLON.DeviceSourceManager(engine);
+  
+    const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 7, 75, new BABYLON.Vector3(0, 0, 0));
+    camera.attachControl(canvas, true);
+    const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0));
+
+    // Create hammer
+    createHammer();
+
+    // GUI Elements        
+    var guiElements = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+
+    pointsText = new BABYLON.GUI.TextBlock();
+    pointsText.text = "Press any key to start";
+    pointsText.color = "white";
+    pointsText.fontSize = 24;
+    pointsText.top = "-45%";
+    guiElements.addControl(pointsText);    
+
+    guiElements.addControl( buttonTile( "W", "blue", "35%", "35%", function() { pressButtonUp(scene); } ) );
+    guiElements.addControl( buttonTile( "A", "blue", "25%", "40%", function() { pressButtonLeft(scene); }) );
+    guiElements.addControl( buttonTile( "S", "blue", "35%", "45%", function() { pressButtonDown(scene); }) );
+    guiElements.addControl( buttonTile( "D", "blue", "45%", "40%", function() { pressButtonRight(scene); }) );
+    guiElements.addControl( buttonTile( "Space", "red", "35%", "40%", function() { pressButtonFire(scene); }) );
+	    
+	// Mole
+	BABYLON.SceneLoader.ImportMesh("", "https://raw.githubusercontent.com/jimarinh/immersiuqube/fc8842b692e66624a1fdd7b3f8b12c1ab4fe7382/topos/", "topo.gltf", scene, function(newMeshes){
+		moles[0] = newMeshes[0]; 
+        moles[0].scaling = new BABYLON.Vector3(1, 1, 1);        
+        moles[0].position.z  = -20;
+        for(let i=1; i<maxMoles; i++) {
+            moles[i] = moles[0].clone("mole"+i);
+            moles[i].position.z  = -20;
+            moles[i].position.x = 5*i;
+        }
+        gameStarted = false;
+        gameOver = false;
+
+        // Main game loop
+        scene.registerBeforeRender(function () {
+            
+            if (gameStarted && !gameOver) {
+                // Display time & score
+                showTimeScore();
+                
+                //Get coordinates of hammer top
+                var m = hTop.getWorldMatrix();
+                var hammerRealPos = BABYLON.Vector3.TransformCoordinates(hTop.position, m);
+
+                // Update moles
+                for(let i=0; i<moles.length; i++) {
+                    //Change mole state if counter is zero 
+                    molesTimecount[i]--;
+                    if (molesTimecount[i] == 0) { 
+                        molesStatus[i]++;
+                        //if mole is visible, set the mole velocity to the value in wait time,
+                        //in other case, set the time to 1 second
+                        if (molesStatus[i] == 2) {  
+                            molesTimecount[i] = molesWaitTime[i];
+                        } else {
+                            molesTimecount[i] = fps;
+                        } 
+                        if (molesStatus[i]>5) {
+                            molesStatus[i] = 0;
+                        }
+                    }
+                    //Perform animation depending on mole status
+                    switch(molesStatus[i]) {
+                        case 0: //sleeping: compute next hole
+                            var hole_num = Math.floor( Math.random()*maxHoles );
+                            moles[i].position.x = holes[hole_num].position.x;
+                            moles[i].position.z = holes[hole_num].position.z;
+                            moles[i].position.y = -4;
+                            moles[i].scaling.y = 1;
+                            break;
+                        case 1: //moving up
+                            moles[i].position.y += 0.1;
+                            break;
+                        case 2: //mole is completly up. just wait
+                            break;
+                        case 3: //moving down
+                            moles[i].position.y -= 0.1;
+                            break;
+                        case 4: //mole is completly down, go to sleep
+							molesStatus[i] = 0;
+                            break;
+						case 5: //smashing. just wait
+                            moles[i].scaling.y *= 0.95;
+							moles[i].position.y -= 0.05;
+                            break;
+                    }
+
+                    // Check if a mole is smashed
+                    if ( (molesStatus[i]>=1) && (molesStatus[i]<=3) && 
+                         (hammer.rotation.x < -Math.PI/2+Math.PI/60) &&
+                         (hammerRealPos.x > moles[i].position.x-holeDiameter) &&
+                         (hammerRealPos.x < moles[i].position.x+holeDiameter) &&
+                         (hammerRealPos.z > moles[i].position.z-holeDiameter) &&
+                         (hammerRealPos.z < moles[i].position.z+holeDiameter) ) 
+                         {
+                            molesStatus[i] = 5;
+                            molesTimecount[i] = fps;
+                            totalPoints++;
+                        }
+                } 
+                timeStamp++;
+                //Check if game over
+                if (timeStamp > maxTime) {
+                    pointsText.text = "Game Over - " + pointsText.text;
+                    gameStarted = false;
+                    gameOver = true;
+                }
+            }
+
+            // Read keyboard
+            if (dsm.getDeviceSource(BABYLON.DeviceType.Keyboard)) {
+                if (dsm.getDeviceSource(BABYLON.DeviceType.Keyboard).getInput(65) == 1) {
+                   pressButtonLeft(scene);
+                }
+                if (dsm.getDeviceSource(BABYLON.DeviceType.Keyboard).getInput(83) == 1) {
+                    pressButtonDown(scene);    
+                }
+                if (dsm.getDeviceSource(BABYLON.DeviceType.Keyboard).getInput(68) == 1) {
+                    pressButtonRight(scene);
+                }
+                if (dsm.getDeviceSource(BABYLON.DeviceType.Keyboard).getInput(87) == 1) {
+                    pressButtonUp(scene);
+                }
+                if (dsm.getDeviceSource(BABYLON.DeviceType.Keyboard).getInput(32) == 1) {
+                    pressButtonFire(scene);
+                }
+            }
+            
+            mydevice.read(function(str){ 
+                		console.log(str);
+				const obj = JSON.parse(str,	function (key, value) {
+                   
+                            if ( (key == "d") && (value < 6)) {
+	     	              	 pressButtonFire(scene);
+     	     	     	 }
+                    		if ( (key == "x") ) {
+							if(value < 0){
+                          			pressButtonRight(scene);
+			     			} else {
+                          			pressButtonLeft(scene);
+							}
+                     		}
+						if ( (key == "y") ) {
+							if(value > 0){
+                        		   		pressButtonUp(scene);
+			      			}
+                				else {
+                    				pressButtonDown(scene);
+							}
+                			}
+                });
+            });
+            
+        });
+
+
+	});
+	
+/*
+    var layer = new BABYLON.Layer("background", null, scene, true);
+    BABYLON.VideoTexture.CreateFromWebCam(scene, function (videoTexture) {
+        videoTexture.vScale = -1.0;
+        videoTexture.uScale = canvas.width / canvas.height * videoTexture.getSize().height / videoTexture.getSize().width;
+        layer.texture = videoTexture;
+    }, { maxWidth: 640, maxHeight: 480, deviceId: 1 });
+*/
+    return scene;
+
+};
+
+                window.initFunction = async function() {
+                    
+                    
+                    
+                    var asyncEngineCreation = async function() {
+                        try {
+                        return createDefaultEngine();
+                        } catch(e) {
+                        console.log("the available createEngine function failed. Creating the default engine instead");
+                        return createDefaultEngine();
+                        }
+                    }
+
+                    window.engine = await asyncEngineCreation();
+        if (!engine) throw 'engine should not be null.';
+        startRenderLoop(engine, canvas);
+        window.scene = createScene();};
+        initFunction().then(() => {sceneToRender = scene                    
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
