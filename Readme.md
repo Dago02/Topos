@@ -12,7 +12,7 @@ Cuenta con un acelerometor y un sensor ultrasonico que permiten la iteraccion co
 Esta implimentacion se realizo con la esp32 que nos permite estar en copnstante comunicacion por su puesto Bluetooth al computador.
 
 Creditos:
-Mariana Jimenez Duarte 
-Laura Vallentina Buitrago 
-Dago Mauricio Quiroz Hoyos
-Jorge Ivan Marin
+Mariana Jimenez Duarte. 
+Laura Vallentina Buitrago. 
+Dago Mauricio Quiroz Hoyos.
+Jorge Ivan Marin.
